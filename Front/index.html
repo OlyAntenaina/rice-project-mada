@@ -1,0 +1,543 @@
+<!DOCTYPE html>
+<html lang="mg">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Rice Disease AI | Next-Gen MLOps</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    
+    <!-- Leaflet CSS sy JS -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    
+    <!-- html2pdf ho an'ny Rapport PDF -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
+
+    <style>
+        body { font-family: 'Plus Jakarta Sans', sans-serif; }
+        
+        /* SARIN'NY TANIMBARY (Rizières en terrasses) */
+        .bg-farm { 
+            background-image: url('https://images.unsplash.com/photo-1589923188900-85dae523342b?q=80&w=2070&auto=format&fit=crop'); 
+            background-size: cover; 
+            background-position: center; 
+            background-attachment: fixed; 
+        }
+        
+        /* Effet Glassmorphism */
+        .glass {
+            background: rgba(15, 23, 42, 0.7);
+            backdrop-filter: blur(16px);
+            -webkit-backdrop-filter: blur(16px);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+        .glass-card {
+            background: rgba(30, 41, 59, 0.8);
+            backdrop-filter: blur(10px);
+            -webkit-backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.05);
+        }
+        #map { height: 320px; width: 100%; z-index: 10; border-radius: 0.75rem; border: 1px solid rgba(255,255,255,0.1); }
+        
+        /* Animation de chargement */
+        @keyframes pulse-glow {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.5; }
+        }
+        .loading-pulse { animation: pulse-glow 1.5s ease-in-out infinite; }
+    </style>
+</head>
+<body class="bg-farm min-h-screen text-slate-200 antialiased overflow-x-hidden">
+    
+    <!-- Overlay maizina mba hisongadina ny Glassmorphism sy ny lahatsoratra -->
+    <div class="fixed inset-0 bg-slate-950/80 z-0"></div>
+
+    <!-- LOGIN SCREEN -->
+    <div id="login-screen" class="relative z-20 flex items-center justify-center min-h-screen hidden p-4">
+        <div class="glass p-10 rounded-3xl w-full max-w-md shadow-2xl">
+            <div class="text-center mb-8">
+                <h2 class="text-3xl font-extrabold text-transparent bg-clip-text bg-gradient-to-r from-emerald-400 to-cyan-400 mb-2">Rice Disease AI</h2>
+                <p class="text-sm text-slate-400">Next-Gen MLOps Platform</p>
+            </div>
+            
+            <div class="space-y-5">
+                <div>
+                    <label class="text-xs font-bold text-slate-400 mb-2 block uppercase tracking-wider">Anarana</label>
+                    <input type="text" id="username" placeholder="admin" class="w-full bg-slate-900/50 border border-slate-700 rounded-xl p-3.5 text-sm text-white focus:outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 transition-all">
+                </div>
+                <div>
+                    <label class="text-xs font-bold text-slate-400 mb-2 block uppercase tracking-wider">Mot de passe</label>
+                    <input type="password" id="password" placeholder="••••••••" class="w-full bg-slate-900/50 border border-slate-700 rounded-xl p-3.5 text-sm text-white focus:outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 transition-all">
+                </div>
+                <button onclick="login()" class="w-full bg-gradient-to-r from-emerald-500 to-cyan-500 text-white py-3.5 rounded-xl text-sm font-bold hover:shadow-[0_0_20px_rgba(16,185,129,0.4)] transition-all duration-300 transform hover:-translate-y-0.5">Hiditra</button>
+                <p id="login-error" class="text-red-400 text-xs text-center hidden mt-2 font-medium">Diso ny anarana na mot de passe.</p>
+            </div>
+        </div>
+    </div>
+
+    <!-- DASHBOARD -->
+    <div id="dashboard" class="relative z-20 hidden max-w-7xl mx-auto p-4 md:p-8">
+        
+        <!-- Header -->
+        <header class="glass rounded-2xl px-8 py-5 flex justify-between items-center mb-8 shadow-lg">
+            <div class="flex items-center gap-4">
+                <div class="w-10 h-10 rounded-full bg-gradient-to-tr from-emerald-500 to-cyan-500 flex items-center justify-center text-white font-bold text-xl shadow-lg">R</div>
+                <div>
+                    <h1 class="text-xl font-extrabold text-white tracking-tight">Rice Disease AI</h1>
+                    <p class="text-xs text-slate-400 font-medium">Rafitra MLOps ho an'ny mpamboly</p>
+                </div>
+            </div>
+            <div class="flex items-center gap-6">
+                <p id="date-display" class="text-sm font-bold text-emerald-400"></p>
+                <button onclick="logout()" class="text-sm font-semibold text-slate-300 hover:text-white border border-slate-600 hover:border-slate-400 px-5 py-2 rounded-xl transition-all">Mivoaka</button>
+            </div>
+        </header>
+
+        <!-- TABS -->
+        <div class="flex mb-8 glass p-1.5 rounded-2xl w-max shadow-lg">
+            <button onclick="showTab('analyse')" id="tab-btn-analyse" class="px-8 py-2.5 text-sm font-bold bg-gradient-to-r from-emerald-500 to-cyan-500 text-white rounded-xl shadow-md transition-all">Famakafakana</button>
+            <button onclick="showTab('astuces')" id="tab-btn-astuces" class="px-8 py-2.5 text-sm font-bold text-slate-400 hover:text-white rounded-xl transition-all">Torohevitra</button>
+            <button onclick="showTab('history')" id="tab-btn-history" class="px-8 py-2.5 text-sm font-bold text-slate-400 hover:text-white rounded-xl transition-all">Tahiry</button>
+        </div>
+
+        <!-- TAB 1: ANALYSE -->
+        <div id="tab-analyse" class="glass rounded-3xl p-6 md:p-10 shadow-2xl">
+            <div class="grid grid-cols-1 lg:grid-cols-2 gap-10">
+                
+                <!-- Left: Input -->
+                <div>
+                    <div class="flex mb-8 bg-slate-900/50 p-1.5 rounded-xl w-max border border-slate-700">
+                        <button id="tab-img" class="px-6 py-2 text-sm font-bold bg-slate-700 text-white rounded-lg shadow-sm transition-all">Sary</button>
+                        <button id="tab-vid" class="px-6 py-2 text-sm font-bold text-slate-400 hover:text-white rounded-lg transition-all">Video (Drone)</button>
+                    </div>
+
+                    <div id="drop-zone" class="border-2 border-dashed border-emerald-500/50 bg-emerald-500/5 rounded-2xl p-12 text-center cursor-pointer hover:bg-emerald-500/10 hover:border-emerald-400 transition-all duration-300 group">
+                        <svg class="w-12 h-12 mx-auto text-emerald-500 mb-4 group-hover:scale-110 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"></path></svg>
+                        <p id="upload-text" class="text-sm font-bold text-slate-300">Sintony na safidio ny sary</p>
+                        <p class="text-xs text-slate-500 mt-1">JPG, PNG, MP4</p>
+                        <input id="file-upload" type="file" class="hidden" accept="image/*">
+                    </div>
+
+                    <div id="preview" class="hidden mt-6 text-center">
+                        <img id="image-preview" class="mx-auto rounded-xl max-h-56 border border-slate-600 shadow-lg hidden object-cover" />
+                        <video id="video-preview" class="mx-auto rounded-xl max-h-56 border border-slate-600 shadow-lg hidden" controls muted></video>
+                        <canvas id="canvas" class="hidden"></canvas>
+                    </div>
+
+                    <!-- GPS & Superficie -->
+                    <div class="grid grid-cols-2 gap-5 mt-6">
+                        <div>
+                            <label class="text-xs font-bold text-slate-400 mb-2 block uppercase tracking-wider">Latitude</label>
+                            <input type="text" id="lat" value="-18.8792" class="w-full bg-slate-900/50 border border-slate-700 rounded-xl p-3 text-sm text-white focus:outline-none focus:border-emerald-500 transition-all" onchange="updateMapFromInputs()">
+                        </div>
+                        <div>
+                            <label class="text-xs font-bold text-slate-400 mb-2 block uppercase tracking-wider">Longitude</label>
+                            <input type="text" id="lon" value="47.5079" class="w-full bg-slate-900/50 border border-slate-700 rounded-xl p-3 text-sm text-white focus:outline-none focus:border-emerald-500 transition-all" onchange="updateMapFromInputs()">
+                        </div>
+                    </div>
+                    
+                    <div class="mt-5">
+                        <label class="text-xs font-bold text-slate-400 mb-2 block uppercase tracking-wider">Velaran'ny tanimbary (Hectares)</label>
+                        <input type="number" id="superficie" value="1.5" step="0.1" class="w-full bg-slate-900/50 border border-slate-700 rounded-xl p-3 text-sm text-white focus:outline-none focus:border-emerald-500 transition-all">
+                    </div>
+
+                    <div class="mt-6 flex items-center gap-3 bg-slate-900/50 p-4 rounded-xl border border-slate-700 cursor-pointer" onclick="document.getElementById('multispectral-toggle').click()">
+                        <input type="checkbox" id="multispectral-toggle" class="w-5 h-5 text-emerald-500 bg-slate-800 border-slate-600 rounded focus:ring-emerald-500 focus:ring-2">
+                        <label class="text-sm font-bold text-slate-300 cursor-pointer">Activer l'analyse Multispectrale (NDVI)</label>
+                    </div>
+
+                    <button id="btn" class="w-full mt-8 bg-gradient-to-r from-emerald-500 to-cyan-500 text-white py-4 rounded-xl text-sm font-extrabold shadow-[0_0_20px_rgba(16,185,129,0.3)] hover:shadow-[0_0_30px_rgba(16,185,129,0.5)] hover:-translate-y-1 transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed" disabled>
+                        Analyser ny Sary
+                    </button>
+                    <div id="loading" class="hidden text-center mt-4 text-sm font-bold text-emerald-400 loading-pulse"></div>
+                </div>
+
+                <!-- Right: Map & Result -->
+                <div class="flex flex-col gap-6">
+                    <div>
+                        <h3 class="text-sm font-bold text-white mb-3 uppercase tracking-wider flex items-center gap-2">
+                            <span class="w-2 h-2 rounded-full bg-emerald-500"></span> Toerana nahitana ny aretina
+                        </h3>
+                        <div id="map" class="shadow-lg"></div>
+                    </div>
+                    
+                    <div id="current-result" class="hidden glass-card rounded-2xl p-6 shadow-lg"></div>
+                </div>
+            </div>
+        </div>
+
+        <!-- TAB 2: TOROHEVITRA -->
+        <div id="tab-astuces" class="hidden glass rounded-3xl p-6 md:p-10 shadow-2xl">
+            <h2 class="text-2xl font-extrabold text-transparent bg-clip-text bg-gradient-to-r from-emerald-400 to-cyan-400 mb-8 border-b border-slate-700 pb-4">Torohevitra ho an'ny mpamboly vary</h2>
+            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                
+                <div class="glass-card p-6 rounded-2xl border border-slate-700 hover:border-emerald-500/50 transition-all">
+                    <div class="text-emerald-400 text-3xl mb-4 font-black">01</div>
+                    <h3 class="font-bold text-white text-lg mb-2">Fitantanana ny Rano</h3>
+                    <p class="text-sm text-slate-400 leading-relaxed">Aza avela ho feno rano foana ny tanimbary. Ataovy mifandimby ny famenoana rano sy ny fampahamaina kely. Mampihena ny aretina holatra izany ary mampitombo ny fakan'ny vary.</p>
+                </div>
+
+                <div class="glass-card p-6 rounded-2xl border border-slate-700 hover:border-emerald-500/50 transition-all">
+                    <div class="text-emerald-400 text-3xl mb-4 font-black">02</div>
+                    <h3 class="font-bold text-white text-lg mb-2">Fisafidianana ny Voa</h3>
+                    <p class="text-sm text-slate-400 leading-relaxed">Ampiasao ny voa voamarina (toy ny FOFIFA 154 na Makalioka) izay manana fanoherana tsara amin'ny aretina. Aza mampiasa voa avy amin'ny vary efa voan'ny aretina.</p>
+                </div>
+
+                <div class="glass-card p-6 rounded-2xl border border-slate-700 hover:border-emerald-500/50 transition-all">
+                    <div class="text-emerald-400 text-3xl mb-4 font-black">03</div>
+                    <h3 class="font-bold text-white text-lg mb-2">Fandanjalanjana Zezika</h3>
+                    <p class="text-sm text-slate-400 leading-relaxed">Aza manisy zezika azota (Urea) be loatra. Ny azota be loatra dia mampahalemy ny taho, ka mora voan'ny Pyriculariose. Ampiasao miaraka amin'ny zezika organika.</p>
+                </div>
+
+                <div class="glass-card p-6 rounded-2xl border border-slate-700 hover:border-emerald-500/50 transition-all">
+                    <div class="text-emerald-400 text-3xl mb-4 font-black">04</div>
+                    <h3 class="font-bold text-white text-lg mb-2">Fanaraha-maso isan'andro</h3>
+                    <p class="text-sm text-slate-400 leading-relaxed">Jereo ny ravina isa-maraina. Raha mahita tasy na fiovan-tarehy ianao, alaovy sary ary ampiasao ity rafitra ity mba hamantarana ny aretina haingana.</p>
+                </div>
+
+                <div class="glass-card p-6 rounded-2xl border border-slate-700 hover:border-emerald-500/50 transition-all">
+                    <div class="text-emerald-400 text-3xl mb-4 font-black">05</div>
+                    <h3 class="font-bold text-white text-lg mb-2">Fandotoana ny Tanimbary</h3>
+                    <p class="text-sm text-slate-400 leading-relaxed">Aorian'ny fijinjana, dotoy na ritrao ny taho sisa tavela. Mamono ny atody na ny bakteria mijanona ao anaty tany izany, miaro ny taranaka manaraka.</p>
+                </div>
+
+                <div class="glass-card p-6 rounded-2xl border border-slate-700 hover:border-emerald-500/50 transition-all">
+                    <div class="text-emerald-400 text-3xl mb-4 font-black">06</div>
+                    <h3 class="font-bold text-white text-lg mb-2">Fiarovana ny bibikely</h3>
+                    <p class="text-sm text-slate-400 leading-relaxed">Aza mamono tsy ampoizina ny hala na ny sahona eny amin'ny tanimbary. Izy ireo no fahavalon'ny bibikely manimba ny vary.</p>
+                </div>
+
+            </div>
+        </div>
+
+        <!-- TAB 3: HISTORIQUE -->
+        <div id="tab-history" class="hidden glass rounded-3xl p-6 md:p-10 shadow-2xl">
+            <h2 class="text-2xl font-extrabold text-transparent bg-clip-text bg-gradient-to-r from-emerald-400 to-cyan-400 mb-8 border-b border-slate-700 pb-4">Tahirin'ny asa natao</h2>
+            <div id="history-container" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6"></div>
+        </div>
+
+    </div>
+
+    <script>
+        const API_URL = "http://127.0.0.1:8001";
+        let token = localStorage.getItem("jwt_token");
+        let currentMode = 'image';
+        let file = null;
+        
+        // Map (Dark Mode)
+        let map = L.map('map').setView([-18.8792, 47.5079], 6);
+        L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', { attribution: '© OpenStreetMap' }).addTo(map);
+        let marker = L.circleMarker([-18.8792, 47.5079], { color: '#10b981', radius: 8, fillOpacity: 0.9, weight: 2 }).addTo(map);
+
+        map.on('click', function(e) {
+            document.getElementById('lat').value = e.latlng.lat.toFixed(4);
+            document.getElementById('lon').value = e.latlng.lng.toFixed(4);
+            marker.setLatLng([e.latlng.lat, e.latlng.lng]);
+        });
+
+        function updateMapFromInputs() {
+            let lat = parseFloat(document.getElementById('lat').value);
+            let lon = parseFloat(document.getElementById('lon').value);
+            if(!isNaN(lat) && !isNaN(lon)) {
+                map.setView([lat, lon], 13);
+                marker.setLatLng([lat, lon]);
+            }
+        }
+
+        function getMalagasyDiseaseName(englishName) {
+            const translations = {
+                "Bacterial Blight": "Bactériose (BLB)",
+                "Brown Spot": "Tavy volontsôkôlà",
+                "Healthy": "Salama",
+                "Leaf Blast": "Pyriculariose (Menamiretaka)",
+                "Leaf Smut": "Charbon des feuilles",
+                "Tungro": "Tungro (Mavobe)",
+                "Tsy fantatra (Sary tsy mazava na tsy ravina)": "Tsy fantatra"
+            };
+            return translations[englishName] || englishName;
+        }
+
+        function getWeatherText(code) {
+            if (code === 0) return "Mazava";
+            if (code >= 1 && code <= 3) return "Rahona";
+            if (code === 45 || code === 48) return "Zavona";
+            if (code >= 51 && code <= 67) return "Orana";
+            if (code >= 71 && code <= 77) return "Orana mafy";
+            if (code >= 80 && code <= 82) return "Orana kely";
+            if (code >= 95) return "Rivotra sy Orana";
+            return "Tsy fantatra"; 
+        }
+
+        function getMalagasyDate(dateObj) {
+            const days = ["Alahady", "Alatsinainy", "Talata", "Alarobia", "Alakamisy", "Zoma", "Asabotsy"];
+            const months = ["Janoary", "Febroary", "Martsa", "Aprily", "Mey", "Jona", "Jolay", "Aogositra", "Septambra", "Oktobra", "Novambra", "Desambra"];
+            return `${days[dateObj.getDay()]} ${dateObj.getDate()} ${months[dateObj.getMonth()]} ${dateObj.getFullYear()}`;
+        }
+
+        if (token) { showDashboard(); } else { document.getElementById('login-screen').classList.remove('hidden'); }
+
+        async function login() {
+            const formData = new FormData();
+            formData.append('username', document.getElementById('username').value);
+            formData.append('password', document.getElementById('password').value);
+            try {
+                const res = await fetch(`${API_URL}/login`, { method: 'POST', body: formData });
+                if (res.ok) {
+                    const data = await res.json();
+                    localStorage.setItem("jwt_token", data.token);
+                    token = data.token;
+                    showDashboard();
+                } else { document.getElementById('login-error').classList.remove('hidden'); }
+            } catch (e) { alert("Tsy tafiditra ny API."); }
+        }
+
+        function showDashboard() {
+            document.getElementById('login-screen').classList.add('hidden');
+            document.getElementById('dashboard').classList.remove('hidden');
+            document.getElementById('date-display').textContent = getMalagasyDate(new Date());
+            setTimeout(() => { map.invalidateSize(); }, 200);
+            loadHistory();
+        }
+
+        function logout() { localStorage.removeItem("jwt_token"); location.reload(); }
+
+        function showTab(tab) {
+            document.getElementById('tab-analyse').classList.add('hidden');
+            document.getElementById('tab-astuces').classList.add('hidden');
+            document.getElementById('tab-history').classList.add('hidden');
+            
+            document.getElementById('tab-btn-analyse').className = "px-8 py-2.5 text-sm font-bold text-slate-400 hover:text-white rounded-xl transition-all";
+            document.getElementById('tab-btn-astuces').className = "px-8 py-2.5 text-sm font-bold text-slate-400 hover:text-white rounded-xl transition-all";
+            document.getElementById('tab-btn-history').className = "px-8 py-2.5 text-sm font-bold text-slate-400 hover:text-white rounded-xl transition-all";
+            
+            document.getElementById(`tab-${tab}`).classList.remove('hidden');
+            document.getElementById(`tab-btn-${tab}`).className = "px-8 py-2.5 text-sm font-bold bg-gradient-to-r from-emerald-500 to-cyan-500 text-white rounded-xl shadow-md transition-all";
+            
+            if(tab === 'history') loadHistory();
+            if(tab === 'analyse') setTimeout(() => { map.invalidateSize(); }, 200);
+        }
+
+        const dropZone = document.getElementById('drop-zone');
+        const fileInput = document.getElementById('file-upload');
+        const imagePreview = document.getElementById('image-preview');
+        const videoPreview = document.getElementById('video-preview');
+        const btn = document.getElementById('btn');
+
+        document.getElementById('tab-img').onclick = () => {
+            currentMode = 'image';
+            document.getElementById('tab-img').className = "px-6 py-2 text-sm font-bold bg-slate-700 text-white rounded-lg shadow-sm transition-all";
+            document.getElementById('tab-vid').className = "px-6 py-2 text-sm font-bold text-slate-400 hover:text-white rounded-lg transition-all";
+            document.getElementById('upload-text').textContent = "Sintony na safidio ny sary";
+            fileInput.setAttribute('accept', 'image/*');
+            resetUI();
+        };
+
+        document.getElementById('tab-vid').onclick = () => {
+            currentMode = 'video';
+            document.getElementById('tab-vid').className = "px-6 py-2 text-sm font-bold bg-slate-700 text-white rounded-lg shadow-sm transition-all";
+            document.getElementById('tab-img').className = "px-6 py-2 text-sm font-bold text-slate-400 hover:text-white rounded-lg transition-all";
+            document.getElementById('upload-text').textContent = "Sintony na safidio ny video (Drone)";
+            fileInput.setAttribute('accept', 'video/*');
+            resetUI();
+        };
+
+        function resetUI() {
+            file = null;
+            document.getElementById('preview').classList.add('hidden');
+            document.getElementById('current-result').classList.add('hidden');
+            btn.disabled = true;
+        }
+
+        dropZone.onclick = () => fileInput.click();
+        
+        fileInput.onchange = (e) => {
+            if (e.target.files.length) {
+                file = e.target.files[0];
+                document.getElementById('preview').classList.remove('hidden');
+                btn.disabled = false;
+                if (currentMode === 'image') {
+                    imagePreview.classList.remove('hidden');
+                    videoPreview.classList.add('hidden');
+                    const reader = new FileReader();
+                    reader.onload = (e) => { imagePreview.src = e.target.result; };
+                    reader.readAsDataURL(file);
+                } else {
+                    imagePreview.classList.add('hidden');
+                    videoPreview.classList.remove('hidden');
+                    videoPreview.src = URL.createObjectURL(file);
+                }
+            }
+        };
+
+        async function sendToAPI(blob, filename) {
+            const formData = new FormData();
+            formData.append('file', blob, filename);
+            formData.append('latitude', document.getElementById('lat').value);
+            formData.append('longitude', document.getElementById('lon').value);
+            formData.append('superficie', document.getElementById('superficie').value);
+            formData.append('mode', document.getElementById('multispectral-toggle').checked ? 'multispectral' : 'standard');
+
+            const res = await fetch(`${API_URL}/predict`, {
+                method: 'POST',
+                headers: { 'Authorization': `Bearer ${token}` },
+                body: formData
+            });
+            if (res.ok) return await res.json();
+            throw new Error("API Error");
+        }
+
+        btn.onclick = async () => {
+            if (!file) return;
+            document.getElementById('loading').innerHTML = "Fandinihana ny AI... (Mety haka 20 segondra)";
+            document.getElementById('loading').classList.remove('hidden');
+            document.getElementById('current-result').classList.add('hidden');
+            btn.disabled = true;
+
+            try {
+                if (currentMode === 'image') {
+                    const data = await sendToAPI(file, file.name);
+                    showResult(data);
+                } else {
+                    const video = videoPreview;
+                    const canvas = document.getElementById('canvas');
+                    const ctx = canvas.getContext('2d');
+                    if (video.readyState < 2) await new Promise(r => setTimeout(r, 1000)); 
+                    canvas.width = video.videoWidth || 640;
+                    canvas.height = video.videoHeight || 480;
+                    ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+                    const blob = await new Promise(resolve => canvas.toBlob(resolve, 'image/jpeg', 0.9));
+                    
+                    const data = await sendToAPI(blob, "frame_video.jpg");
+                    showResult(data);
+                }
+                loadHistory(); 
+            } catch (err) {
+                alert("Nisy olana: " + err.message);
+            } finally {
+                document.getElementById('loading').classList.add('hidden');
+                btn.disabled = false;
+            }
+        };
+
+        function showResult(data) {
+            const box = document.getElementById('current-result');
+            const maladieGasy = data.maladie.split(' + ').map(m => {
+                const name = m.split(' (')[0];
+                return getMalagasyDiseaseName(name) + (m.includes('(') ? ' (' + m.split(' (')[1] : '');
+            }).join(' + ');
+
+            let xaiImage = data.gradcam ? `
+                <div class="mt-4 border-t border-slate-700 pt-4">
+                    <p class="text-xs font-bold text-slate-400 mb-2 uppercase tracking-wider">Explicabilité (Grad-CAM):</p>
+                    <div class="rounded-xl overflow-hidden border border-slate-600 shadow-inner">
+                        <img src="data:image/jpeg;base64,${data.gradcam}" class="w-full h-40 object-contain bg-black" />
+                    </div>
+                </div>` : "";
+            
+            let ndviHtml = (data.ndvi && data.ndvi !== "Tsy misy") ? `<p class="text-xs font-bold text-cyan-400 mt-2">Multispectral: ${data.ndvi}</p>` : "";
+
+            box.innerHTML = `
+                <div class="flex justify-between items-start">
+                    <div>
+                        <h3 class="font-extrabold text-white text-xl uppercase tracking-tight">${maladieGasy}</h3>
+                        <p class="text-sm font-bold text-emerald-400 mt-1 bg-emerald-500/10 inline-block px-2 py-1 rounded">Fahatokisana: ${(data.confiance * 100).toFixed(2)}%</p>
+                    </div>
+                    <div class="text-right bg-slate-800 p-2 rounded-lg border border-slate-700">
+                        <p class="text-lg font-extrabold text-white">${data.temp}°C</p>
+                        <p class="text-[10px] text-slate-400 uppercase font-bold">${getWeatherText(data.weather_code)}</p>
+                    </div>
+                </div>
+                
+                <div class="mt-4 border-t border-slate-700 pt-3">
+                    <div class="grid grid-cols-2 gap-2 text-xs">
+                        <p class="text-slate-400">GPS: <span class="text-white font-medium">${data.localisation.latitude}, ${data.localisation.longitude}</span></p>
+                        <p class="text-slate-400">Tanimbary: <span class="text-white font-medium">${data.superficie} Ha</span></p>
+                    </div>
+                    <p class="text-[10px] text-slate-500 mt-2 uppercase font-bold">Daty: ${data.date}</p>
+                    ${ndviHtml}
+                </div>
+                
+                ${xaiImage}
+                
+                <button onclick="downloadPDF()" class="w-full mt-5 bg-slate-700 text-white py-3 rounded-xl text-xs font-bold hover:bg-slate-600 transition-all border border-slate-600">Télécharger ny Rapport (PDF)</button>
+            `;
+            box.classList.remove('hidden');
+            map.setView([data.localisation.latitude, data.localisation.longitude], 13); 
+            marker.setLatLng([data.localisation.latitude, data.localisation.longitude]);
+        }
+
+        function downloadPDF() {
+            const element = document.getElementById('current-result');
+            const printContainer = document.createElement('div');
+            printContainer.style.padding = "40px";
+            printContainer.style.backgroundColor = "white";
+            printContainer.style.color = "black";
+            printContainer.style.fontFamily = "Arial, sans-serif";
+            printContainer.style.width = "100%";
+            
+            const clone = element.cloneNode(true);
+            clone.querySelectorAll('.text-white, .text-slate-400, .text-slate-500, .text-emerald-400, .text-cyan-400').forEach(el => el.style.color = '#333');
+            clone.querySelectorAll('.bg-slate-800, .bg-slate-700').forEach(el => el.style.backgroundColor = '#f3f4f6');
+            
+            printContainer.innerHTML = `
+                <h1 style="text-align: center; color: #047857; margin-bottom: 30px; border-bottom: 2px solid #047857; padding-bottom: 10px;">RAPPORT D'ANALYSE - RICE DISEASE AI</h1>
+                ${clone.innerHTML}
+                <p style="text-align: center; font-size: 12px; color: gray; margin-top: 50px;">Généré automatiquement par Rice Disease AI (MLOps)</p>
+            `;
+
+            const opt = {
+                margin:       10,
+                filename:     'Rapport_Analyse_Riz.pdf',
+                image:        { type: 'jpeg', quality: 0.98 },
+                html2canvas:  { scale: 2, useCORS: true, backgroundColor: "#ffffff" },
+                jsPDF:        { unit: 'mm', format: 'a4', orientation: 'portrait' }
+            };
+            html2pdf().set(opt).from(printContainer).save();
+        }
+
+        async function loadHistory() {
+            try {
+                const res = await fetch(`${API_URL}/history`);
+                const history = await res.json();
+                const container = document.getElementById('history-container');
+                container.innerHTML = '';
+                if(history.length === 0) {
+                    container.innerHTML = "<p class='text-slate-400 text-sm col-span-3 text-center py-8 font-medium'>Tsy misy tahiry mbola.</p>";
+                    return;
+                }
+                history.forEach((item, index) => {
+                    const mediaTag = item.type === 'image' 
+                        ? `<img src="${API_URL}${item.media_url}" class="w-full h-40 object-cover border-b border-slate-700">`
+                        : `<video src="${API_URL}${item.media_url}" preload="metadata" class="w-full h-40 object-cover border-b border-slate-700" controls></video>`;
+
+                    const maladieGasy = item.maladie.split(' + ').map(m => getMalagasyDiseaseName(m.split(' (')[0])).join(' + ');
+
+                    container.innerHTML += `
+                        <div class="glass-card rounded-2xl flex flex-col relative overflow-hidden group hover:border-emerald-500/50 transition-all duration-300">
+                            ${mediaTag}
+                            <button onclick="deleteItem(${index})" class="absolute top-3 right-3 bg-red-600 text-white px-3 py-1.5 text-[10px] font-bold rounded-lg hover:bg-red-700 transition-all opacity-0 group-hover:opacity-100 shadow-lg">Esorina</button>
+                            <div class="p-5 flex-grow">
+                                <h4 class="font-extrabold text-white text-sm uppercase mb-2">${maladieGasy}</h4>
+                                <div class="border-t border-slate-700 pt-3 flex flex-col gap-1.5">
+                                    <p class="text-xs text-slate-300">GPS: <span class="font-medium text-white">${item.localisation ? `${item.localisation.latitude}, ${item.localisation.longitude}` : 'Tsy fantatra'}</span></p>
+                                    <p class="text-xs text-slate-300">Tanimbary: <span class="font-medium text-white">${item.superficie} Ha</span></p>
+                                    <p class="text-[10px] text-slate-500 uppercase font-bold mt-1">${item.date}</p>
+                                </div>
+                            </div>
+                        </div>
+                    `;
+                });
+            } catch(e) { console.log(e); }
+        }
+
+        async function deleteItem(index) {
+            if (!confirm("Tena tianao ve ny hamafa ity tahiry ity?")) return;
+            try {
+                await fetch(`${API_URL}/history/${index}`, { method: 'DELETE', headers: { 'Authorization': `Bearer ${token}` } });
+                loadHistory();
+            } catch(e) { alert("Nisy olana."); }
+        }
+    </script>
+</body>
+</html>

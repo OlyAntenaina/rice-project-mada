@@ -1,0 +1,45 @@
+[
+    {
+        "date": "13/11/2026 17:59",
+        "maladie": "Tungro",
+        "confiance": 0.9989,
+        "temp": 19.6,
+        "weather_code": 53,
+        "media_url": "/uploads/20261113_175924_Tungro_virus (8).jpg",
+        "type": "image",
+        "localisation": {
+            "latitude": -19.0621,
+            "longitude": 46.8182
+        },
+        "gradcam": ""
+    },
+    {
+        "date": "13/11/2026 14:58",
+        "maladie": "Bacterial Blight",
+        "confiance": 0.9999,
+        "temp": 22.5,
+        "weather_code": 51,
+        "media_url": "/uploads/20261113_145850_frame_video.jpg",
+        "type": "image",
+        "localisation": {
+            "latitude": -18.8792,
+            "longitude": 47.5079
+        }
+    },
+    {
+        "date": "13/11/2026 14:48",
+        "maladie": "Tungro",
+        "confiance": 0.9999,
+        "meteo": "Hafanana: 22.5\u00b0C, Rivotra: 7.9 km/h",
+        "media_url": "/uploads/20261113_144838_Tungro_virus (16).jpg",
+        "type": "image"
+    },
+    {
+        "date": "13/11/2026 12:27",
+        "maladie": "Brown Spot",
+        "confiance": 0.532,
+        "meteo": "Hafanana: 27.7\u00b0C, Rivotra: 7.0 km/h",
+        "media_url": "/uploads/20261113_122715_healthy7.jpg",
+        "type": "image"
+    }
+]
